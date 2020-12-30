@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS DataSync CloudFormation Sample - SMB to S3
+Metadata:
+  License:
+    Description: |
+      Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+      Permission is hereby granted, free of charge, to any person obtaining a copy of this
+      software and associated documentation files (the "Software"), to deal in the Software
+      without restriction, including without limitation the rights to use, copy, modify,
+      merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+      permit persons to whom the Software is furnished to do so.
+
+      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+      PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+      HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+      OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+      SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Parameters:
+          - activationKey
+          - securityGroupId
+          - vpcEndpointId
+          - subnetId
+          - smbServer
+          - smbPath
+          - secretName
+          - bucketName
+          - s3Prefix
+          - bucketRoleArn
+          - logGroupArn
+    ParameterLabels:
+      activationKey:
+        default: 'Activation key'
+      smbServer:
+        default: 'SMB server'
+      smbPath:
+        default: 'Path on SMB server'
+      secretName:
+        default: 'Secret name for credentials'
+      bucketName:
+        default: 'S3 bucket name'
+      s3Prefix:
+        default: 'S3 prefix'
+      bucketRoleArn:
+        default: 'Role ARN for bucket access'
+      securityGroupId:
+        default: 'Security group'
+      subnetId:
+        default: 'Subnet ID'
+      vpcEndpointId:
+        default: 'VPC Endpoint ID'
+      logGroupArn:
+        default: 'CloudWatch log group ARN'
+
+Parameters:
+  activationKey:
+    Description: 'The activation key you received when you activated your DataSync agent'
+    Type: String
+  securityGroupId:
+    Description: 'Security group to be used by DataSync for the VPC Endpoint'
+    Type: AWS::EC2::SecurityGroup::Id
+  subnetId:
+    Description: 'Subnet where the VPC Endpoint is located'
+    Type: AWS::EC2::Subnet::Id
+  vpcEndpointId:
+    Description: 'ID of the DataSync VPC endpoint'
+    Type: String
+  smbServer:
+    Description: 'Hostname or IP address of your on-premises SMB server'
+    Type: String
+  smbPath:
+    Description: 'The path to copy data from on your SMB server'
+    Type: String
+    Default: '/'
+  secretName:
+    Description: 'Secret name with user credentials'
+    Type: String
+  bucketName:
+    Description: 'The name of the S3 bucket to copy data to'
+    Type: String
+  s3Prefix:
+    Description: 'The prefix in the S3 bucket to copy to'
+    Type: String
+    Default: '/'
+  bucketRoleArn:
+    Description: 'ARN of the role to use to access the S3 bucket'
+    Type: String
+  logGroupArn:
+    Description: 'ARN of the CloudWatch log group that DataSync will log to'
+    Type: String
+
+Resources:
+
+  OnPremAgent:
+    Type: AWS::DataSync::Agent
+    Properties:
+      ActivationKey: !Ref activationKey
+      AgentName: 'OnPrem Agent'
+      SecurityGroupArns:
+        - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:security-group/${securityGroupId}
+      SubnetArns:
+        - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${subnetId}
+      VpcEndpointId: !Ref vpcEndpointId
+
+  SmbLocation:
+    Type: AWS::DataSync::LocationSMB
+    Properties:
+        AgentArns:
+          - !Ref OnPremAgent
+        User: !Sub '{{resolve:secretsmanager:${secretName}:SecretString:username}}'
+        Password: !Sub '{{resolve:secretsmanager:${secretName}:SecretString:password}}'
+        Domain: !Sub '{{resolve:secretsmanager:${secretName}:SecretString:domain}}'
+        ServerHostname: !Ref smbServer
+        Subdirectory: !Ref smbPath
+
+  S3Location:
+    Type: AWS::DataSync::LocationS3
+    Properties:
+      S3BucketArn: !Sub arn:${AWS::Partition}:s3:::${bucketName}
+      S3Config:
+        BucketAccessRoleArn: !Ref bucketRoleArn
+      S3StorageClass: STANDARD
+      Subdirectory: !Ref s3Prefix
+
+  SmbToS3Task:
+    Type: AWS::DataSync::Task
+    Properties:
+      Name: 'Copy SMB to S3'
+      SourceLocationArn: !Ref SmbLocation
+      DestinationLocationArn: !Ref S3Location
+      Options:
+        VerifyMode: 'ONLY_FILES_TRANSFERRED'
+        OverwriteMode: 'ALWAYS'
+        PreserveDeletedFiles: 'PRESERVE'
+        LogLevel: 'BASIC'
+      CloudWatchLogGroupArn: !Ref logGroupArn
+
+Outputs:
+  agentArn:
+    Description: Agent ARN
+    Value: !Ref OnPremAgent
+  smbLocationArn:
+    Description: SMB location ARN
+    Value: !Ref SmbLocation
+  smbLocationUri:
+    Description: SMB location URI
+    Value: !GetAtt SmbLocation.LocationUri
+  S3LocationArn:
+    Description: S3 location ARN
+    Value: !Ref S3Location
+  S3LocationUri:
+    Description: S3 location URI
+    Value: !GetAtt S3Location.LocationUri
+  taskArn:
+    Description: Task ARN
+    Value: !Ref SmbToS3Task

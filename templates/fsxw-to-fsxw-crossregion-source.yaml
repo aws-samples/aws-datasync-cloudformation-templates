@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS DataSync CloudFormation Sample - FSx Windows to FSx Windows - Source Region
+Metadata:
+  License:
+    Description: |
+      Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+      Permission is hereby granted, free of charge, to any person obtaining a copy of this
+      software and associated documentation files (the "Software"), to deal in the Software
+      without restriction, including without limitation the rights to use, copy, modify,
+      merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+      permit persons to whom the Software is furnished to do so.
+
+      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+      PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+      HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+      OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+      SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Parameters:
+          - securityGroupId
+          - fsxwFSid
+          - fsxwPath
+          - secretName
+          - destLocationArn
+          - logGroupArn
+    ParameterLabels:
+      fsxwFSid:
+        default: 'Source FSx file system ID'
+      fsxwPath:
+        default: 'Path on source FSx file system'
+      secretName:
+        default: 'Secret name for credentials'
+      destLocationArn:
+        default: 'Destination location ARN'
+      securityGroupId:
+        default: 'Security group'
+      logGroupArn:
+        default: 'CloudWatch log group ARN'
+
+Parameters:
+  securityGroupId:
+    Description: 'Security group to be used by DataSync for the Source FSx location'
+    Type: AWS::EC2::SecurityGroup::Id
+  fsxwFSid:
+    Description: 'File system ID for the source FSx for Windows file server'
+    Type: String
+  fsxwPath:
+    Description: 'The path to copy data from on your source FSx for Windows file server'
+    Type: String
+    Default: '/share'
+  secretName:
+    Description: 'Secret name with user credentials'
+    Type: String
+  destLocationArn:
+    Description: 'The ARN of the destination DataSync location'
+    Type: String
+  logGroupArn:
+    Description: 'ARN of the CloudWatch log group that DataSync will log to'
+    Type: String
+
+
+Resources:
+
+  FSxWindowsLocation:
+    Type: AWS::DataSync::LocationFSxWindows
+    Properties:
+      User: !Sub '{{resolve:secretsmanager:${secretName}:SecretString:username}}'
+      Password: !Sub '{{resolve:secretsmanager:${secretName}:SecretString:password}}'
+      Domain: !Sub '{{resolve:secretsmanager:${secretName}:SecretString:domain}}'
+      FsxFilesystemArn: !Sub arn:${AWS::Partition}:fsx:${AWS::Region}:${AWS::AccountId}:file-system/${fsxwFSid}
+      SecurityGroupArns:
+        - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:security-group/${securityGroupId}
+      Subdirectory: !Ref fsxwPath
+
+  FSxwToFSxwTask:
+    Type: AWS::DataSync::Task
+    Properties:
+      Name: 'Copy FSxW to FSxW'
+      SourceLocationArn: !Ref FSxWindowsLocation
+      DestinationLocationArn: !Ref destLocationArn
+      Options:
+        VerifyMode: 'ONLY_FILES_TRANSFERRED'
+        OverwriteMode: 'ALWAYS'
+        PreserveDeletedFiles: 'PRESERVE'
+        LogLevel: 'BASIC'
+      CloudWatchLogGroupArn: !Ref logGroupArn
+
+Outputs:
+  sourceLocationArn:
+    Description: Source location ARN
+    Value: !Ref FSxWindowsLocation
+  sourceLocationUri:
+    Description: Source location URI
+    Value: !GetAtt FSxWindowsLocation.LocationUri
+  taskArn:
+    Description: Task ARN
+    Value: !Ref FSxwToFSxwTask

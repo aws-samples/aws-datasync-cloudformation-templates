@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS DataSync CloudFormation Sample - NFS to EFS
+Metadata:
+  License:
+    Description: |
+      Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+      Permission is hereby granted, free of charge, to any person obtaining a copy of this
+      software and associated documentation files (the "Software"), to deal in the Software
+      without restriction, including without limitation the rights to use, copy, modify,
+      merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+      permit persons to whom the Software is furnished to do so.
+
+      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+      PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+      HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+      OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+      SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Parameters:
+          - activationKey
+          - securityGroupId
+          - nfsServer
+          - nfsPath
+          - efsFS
+          - efsSubnetId
+          - efsPath
+          - logGroupArn
+    ParameterLabels:
+      activationKey:
+        default: 'Activation key'
+      nfsServer:
+        default: 'NFS server'
+      nfsPath:
+        default: 'Path on NFS server'
+      efsFS:
+        default: 'EFS file system ID'
+      efsSubnetId:
+        default: 'EFS Subnet'
+      efsPath:
+        default: 'Path on EFS file system'
+      securityGroupId:
+        default: 'Security group'
+      logGroupArn:
+        default: 'CloudWatch log group ARN'
+
+Parameters:
+  activationKey:
+    Description: 'The activation key you received when you activated your DataSync agent'
+    Type: String
+  securityGroupId:
+    Description: 'Security group to be used by DataSync for the EFS location'
+    Type: AWS::EC2::SecurityGroup::Id
+  nfsServer:
+    Description: 'Hostname or IP address of your on-premises NFS server'
+    Type: String
+  nfsPath:
+    Description: 'The path to copy data from on your NFS server'
+    Type: String
+    Default: '/'
+  efsFS:
+    Description: 'The ID of the EFS file system to copy data to'
+    Type: String
+  efsSubnetId:
+    Description: 'The Subnet ID to use for the EFS file system'
+    Type: AWS::EC2::Subnet::Id
+  efsPath:
+    Description: 'The path to copy data to on your EFS file system'
+    Type: String
+    Default: '/'
+  logGroupArn:
+    Description: 'ARN of the CloudWatch log group that DataSync will log to'
+    Type: String
+
+
+Resources:
+
+  OnPremAgent:
+    Type: AWS::DataSync::Agent
+    Properties:
+      ActivationKey: !Ref activationKey
+      AgentName: 'OnPrem Agent'
+
+  NfsLocation:
+    Type: AWS::DataSync::LocationNFS
+    Properties:
+      OnPremConfig:
+        AgentArns:
+          - !Ref OnPremAgent
+      ServerHostname: !Ref nfsServer
+      Subdirectory: !Ref nfsPath
+
+  EfsLocation:
+    Type: AWS::DataSync::LocationEFS
+    Properties:
+      EfsFilesystemArn:
+        !Sub arn:${AWS::Partition}:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:file-system/${efsFS}
+      Ec2Config:
+        SecurityGroupArns:
+          - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:security-group/${securityGroupId}
+        SubnetArn: !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:subnet/${efsSubnetId}
+      Subdirectory: !Ref efsPath
+
+  NfsToEfsTask:
+    Type: AWS::DataSync::Task
+    Properties:
+      Name: 'Copy NFS to EFS'
+      SourceLocationArn: !Ref NfsLocation
+      DestinationLocationArn: !Ref EfsLocation
+      Options:
+        VerifyMode: 'ONLY_FILES_TRANSFERRED'
+        OverwriteMode: 'ALWAYS'
+        PreserveDeletedFiles: 'PRESERVE'
+        LogLevel: 'BASIC'
+      CloudWatchLogGroupArn: !Ref logGroupArn
+
+Outputs:
+  agentArn:
+    Description: Agent ARN
+    Value: !Ref OnPremAgent
+  nfsLocationArn:
+    Description: NFS location ARN
+    Value: !Ref NfsLocation
+  nfsLocationUri:
+    Description: NFS location URI
+    Value: !GetAtt NfsLocation.LocationUri
+  efsLocationArn:
+    Description: EFS location ARN
+    Value: !Ref EfsLocation
+  efsLocationUri:
+    Description: EFS location URI
+    Value: !GetAtt EfsLocation.LocationUri
+  taskArn:
+    Description: Task ARN
+    Value: !Ref NfsToEfsTask

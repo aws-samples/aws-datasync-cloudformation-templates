@@ -1,17 +1,19 @@
-## My Project
+# **AWS DataSync**
 
-TODO: Fill this README out!
+### CloudFormation Template Collection
 
-Be sure to:
+© 2020 Amazon Web Services, Inc. and its affiliates. All rights reserved.
+This sample code is made available under the MIT-0 license. See the LICENSE file.
 
-* Change the title in this README
-* Edit your repository description on GitHub
+Errors or corrections? Contact [jeffbart@amazon.com](mailto:jeffbart@amazon.com).
 
-## Security
+---
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+In this repository you'll find a number of templates that demonstrate using DataSync resources with CloudFormation
 
-## License
+### Related Workshops
 
-This library is licensed under the MIT-0 License. See the LICENSE file.
-
+- [NFS server migration using AWS DataSync and Storage Gateway](/workshops/nfs-migration)
+- [Migrate millions of files using AWS DataSync](/workshops/nfs-million-files)
+- [Migrate to FSx Windows File Server using AWS DataSync](https://github.com/aws-samples/aws-datasync-fsx-windows-migration)
+- [Get hands-on with online data migration options to simplify & accelerate your journey to AWS](https://github.com/aws-samples/aws-online-data-migration-workshop)
