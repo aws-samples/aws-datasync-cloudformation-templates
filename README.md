@@ -13,7 +13,7 @@ In this repository you'll find a number of templates that demonstrate using Data
 
 ### Related Workshops
 
-- [NFS server migration using AWS DataSync and Storage Gateway](/workshops/nfs-migration)
-- [Migrate millions of files using AWS DataSync](/workshops/nfs-million-files)
+- [NFS server migration using AWS DataSync and Storage Gateway](https://github.com/aws-samples/aws-datasync-migration-workshop/tree/master/workshops/nfs-migration)
+- [Migrate millions of files using AWS DataSync](https://github.com/aws-samples/aws-datasync-migration-workshop/tree/master/workshops/nfs-million-files)
 - [Migrate to FSx Windows File Server using AWS DataSync](https://github.com/aws-samples/aws-datasync-fsx-windows-migration)
 - [Get hands-on with online data migration options to simplify & accelerate your journey to AWS](https://github.com/aws-samples/aws-online-data-migration-workshop)
